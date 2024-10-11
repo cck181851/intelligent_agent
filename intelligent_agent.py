@@ -18,9 +18,16 @@ class Node:
     def __hash__(self):
         return hash((str(self.pawns),self.rook,self.bishop,self.knight))    
 
-N=5 
+N=6 
 
-table=[[".","R",".",".","."],[".","1","x",".","."],[".","2","x",".","."],[".","3","x",".","."],[".","4","5","6",".",]]
+table=[[".",".","B","R","K","8"],
+        [".","x","x","x",".","x"],
+        [".",".",".",".",".","."],
+        [".","x","1","x","2","x"],
+        [".",".",".",".",".","."],
+        [".",".","4",".",".","."],
+        
+]
 
 knight_move=[[-1,2],[-2,1],[-2,-1],[-1,-2],[1,-2],[2,-1],[2,1],[1,2]]
 
@@ -54,7 +61,7 @@ def search(mode):
     seen={initial}
 
     while queue:        
-        _,_,node=heapq.heappop(queue)            
+        _,_,node=heapq.heappop(queue)                           
         if len(node.pawns)==0:
             return node  
         if node.knight:
@@ -72,14 +79,13 @@ def expand_knight(node,seen,queue,total_expanded_nodes,mode):
         new_x,new_y=x+dx,y+dy  
         if not (0<=new_x<N and 0<=new_y<N):
             continue
-        for target in [node.knight,node.bishop,node.rook,obstacles]:
-            if (new_x,new_y) in target:
-                continue
+        if any([(new_x,new_y)==target or (new_x,new_y) in target for target in [obstacles,node.rook,node.bishop]]):
+            continue
         new_pawns=tuple(pos for pos in node.pawns if pos!=(new_x,new_y)) 
         new_knight=(new_x,new_y)
         new_cost=knight_find_cost(mode,node,new_x,new_y)        
         new_node=Node(new_pawns,node.rook,node.bishop,new_knight,new_cost,node)
-        if new_node in seen: 
+        if new_node not in seen: 
             seen.add(node) 
             total_expanded_nodes[0]+=1
             heapq.heappush(queue,(new_cost,total_expanded_nodes[0],new_node))   
@@ -92,7 +98,7 @@ def expand_rook(node,seen,queue,total_expanded_nodes,mode):
             new_y=y+dy            
             if not (0<=new_x<N and 0<=new_y<N):
                 break
-            if any([(new_x,new_y) in [obstacles,node.rook,node.bishop,node.knight]]):
+            if any([(new_x,new_y) in target or (new_x,new_y)==target for target in [obstacles,node.rook,node.bishop,node.knight]]):
                 break
             new_pawns=tuple(pos for pos in node.pawns if pos!=(new_x,new_y))
             new_rook=(new_x,new_y)
@@ -111,7 +117,7 @@ def expand_bishop(node,seen,queue,total_expanded_nodes,mode):
             new_y=y+dy 
             if not (0<=new_x<N and 0<=new_y<N):
                 break
-            if any([(new_x,new_y) in [obstacles,node.rook,node.bishop,node.knight]]):
+            if any([(new_x,new_y) in target or (new_x,new_y)==target for target in [obstacles,node.rook,node.bishop,node.knight]]):
                 break
             new_pawns=tuple(pos for pos in node.pawns if pos!=(new_x,new_y))
             new_bishop=(new_x,new_y)
@@ -153,10 +159,22 @@ def knight_find_cost(mode,node,new_x,new_y):
         pass
     return new_cost 
 
-res=search(2)
+res=search(1)
 while res.parent:
-    print(res.rook)
-    res=res.parent
+    table=[["." for _ in range(N)] for _ in range(N)]
+    for i,j in res.pawns:
+        table[i][j]="1"
+    for i,j in obstacles:
+        table[i][j]="x"
+    table[res.knight[0]][res.knight[1]]="K"
+    table[res.rook[0]][res.rook[1]]="R"
+    table[res.bishop[0]][res.bishop[1]]="B"
+    for t in table:        
+        print(t)
+    print("********************")
+        
+    res=res.parent    
+
 
 
 
