@@ -1,28 +1,27 @@
 import heapq,math,sys,random
 
 class Node:
-    def __init__(self,pawns,rook,bishop,knight,cost,parent):
-        self.pawns=pawns
-        self.rook=rook 
-        self.bishop=bishop 
-        self.knight=knight 
-        self.cost=cost
-        self.parent=parent 
-
-    def __eq__(self,other):
-        if isinstance(other, Node):
-            return self.pawns == other.pawns and self.rook == other.rook and \
-                self.bishop==other.bishop and self.knight==other.knight 
-        return False
-
-
-    def __hash__(self):
-        return hash((str(self.pawns),self.rook,self.bishop,self.knight))    
+    def __init__(self, pawns, rook, bishop, knight, cost, parent):
+        self.pawns = pawns
+        self.rook = rook
+        self.bishop = bishop
+        self.knight = knight
+        self.cost = cost
+        self.parent = parent
 
     def __eq__(self, other):
-        if isinstance(other, Node):
-            return self.cost == other.cost
-        return 0        
+        if isinstance(other, Node):            
+            return sorted(self.pawns) == sorted(other.pawns) and \
+                   self.rook == other.rook and \
+                   self.bishop == other.bishop and \
+                   self.knight == other.knight
+        return False
+
+    def __hash__(self):        
+        return hash((tuple(sorted(self.pawns)), self.rook, self.bishop, self.knight)) 
+
+    def __lt__(self, other):
+        return self.cost < other.cost           
 
 def minimumSpanningTree(node,mode):
     m=len(node)          
@@ -34,7 +33,7 @@ def minimumSpanningTree(node,mode):
             if mode==1:
                 cost=1 if node[i][0]==node[j][0] or node[i][1]==node[j][1] else 2                       
             elif mode==2: 
-                cost=1 if abs(node[i][0]-node[i][1])==abs(node[j][0]-node[j][1]) else 2
+                cost=1 if abs(node[i][0]-node[j][0])==abs(node[i][1]-node[j][1]) else 2
             graph+=[(cost,i,j)]             
 
 
@@ -61,12 +60,14 @@ def minimumSpanningTree(node,mode):
                 
     return total_cost
 
-arguments = sys.argv 
-file_name,input_file_name,output_file_name,method,heuristic=arguments           
+def generate():
+    return [['.', '.', 'x', 'x', '1', '.', 'x'], ['.', 'x', 'x', '.', '.', '.', 'R'], ['1', '1', '.', '.', '1', '.', '.'], ['x', 'x', '1', '.', '.', '1', '.'], ['.', '.', '.', '.', 'x', '.', 'x'], ['.', '.', 'x', '.', 'x', '.', '.'], ['.', '.', 'x', '.', '1', '.', '.']]
 
-N=8
-table=open(input_file_name,"r+").read()
-     
+arguments = sys.argv 
+file_name,input_file_name,output_file_name,method,heuristic=arguments
+table=generate()
+N=len(table)
+  
 copied=[[i for i in j] for j in table]   
 
 
@@ -104,7 +105,7 @@ def search():
     seen=set()
 
     while queue:     
-        _,_,node=heapq.heappop(queue)                          
+        _,_,node=heapq.heappop(queue)                        
         if len(node.pawns)==0:
             return node  
         if node.knight:
@@ -132,7 +133,7 @@ def expand_knight(node,seen,queue):
         new_knight=(new_x,new_y)                
         new_node=Node(new_pawns,node.rook,node.bishop,new_knight,node.cost+6,node)
         if new_node not in seen:   
-            new_cost=findCost(node,new_x,new_y)      
+            new_cost=findCost(new_node)      
             heapq.heappush(queue,(new_cost,total_expanded_nodes[0],new_node))   
 
 def expand_rook(node,seen,queue):
@@ -153,7 +154,7 @@ def expand_rook(node,seen,queue):
             new_rook=(new_x,new_y)            
             new_node=Node(new_pawns,new_rook,node.bishop,node.knight,node.cost+8,node)
             if new_node not in seen: 
-                new_cost=findCost(node)   
+                new_cost=findCost(new_node)   
                 heapq.heappush(queue,(new_cost,total_expanded_nodes[0],new_node))  
                 if (new_x,new_y) in node.pawns:
                     break 
@@ -176,7 +177,7 @@ def expand_bishop(node,seen,queue):
             new_bishop=(new_x,new_y)            
             new_node=Node(new_pawns,node.rook,new_bishop,node.knight,node.cost+10,node)            
             if new_node not in seen:
-                new_cost=findCost(node)                     
+                new_cost=findCost(new_node)                     
                 heapq.heappush(queue,(new_cost,total_expanded_nodes[0],new_node))   
                 if (new_x,new_y) in node.pawns:
                     break    
@@ -189,7 +190,7 @@ def findCost(node):
         rook_x,rook_y=node.rook
         random=any([rook_x==pi or rook_y==pj for pi,pj in node.pawns])
         return (node.cost+8)+8*((len(node.pawns)+(1 if not random else 0)))
-    elif method=="GS" and heuristic=="h2":
+    elif method=="GS" and heuristic=="h2":        
         return h2(node) 
     elif method=="GS" and heuristic=="h1":
         rook_x,rook_y=node.rook 
@@ -202,57 +203,30 @@ def findCost(node):
         random=any([px==rook_x and py==rook_y for px,py in node.pawns])
         return 8*(len(node.pawns)+1 if not random else len(node.pawns))+node.cost       
 
-def h2(node):
+def h2(node):     
     pawns=node.pawns
-    knight_x,knight_y=node.knight if node else (-1,-1)
-    rook_x,rook_y=node.rook if node.rook else (-1-1) 
-    cost=0
-    if node.knight:            
-        present=go    
-        while go:
-            for dx,dy in knight_move:
-                new_knight_x=knight_x+dx 
-                new_knight_y=knight_y+dy 
-                if (new_knight_x,new_knight_y) in pawns:
-                    knight_x,knight_y=new_knight_x,new_knight_y 
-                    pawns.remove((knight_x,knight_y))
-                    go=True
-                    break  
-            go=False                
+    if not pawns:return 0
+    res=0
+    divide=0
+    if node.rook:
+        nx,ny=node.rook 
+        span=minimumSpanningTree(list(pawns),1)
+        go=min(1 if nx==px or ny==py else 2 for px,py in pawns)
+        res+=8*(span+go)
+        divide+=1
     if node.bishop:
-        bishop_x,bishop_y=node.bishop
-        A=[]
-        for direction in bishop_move:
-            tot=0 
-            for dx,dy in direction:
-                new_bishop_x,new_bishop_y=bishop_x+dx,bishop_y+dy 
-                coor=(new_bishop_x,new_bishop_y)   
-                if coor in obstacles or coor==(knight_x,knight_y) or coor==(rook_x,rook_y):
-                    break 
-                if coor in pawns:
-                    tot+=1             
-            A+=[tot]
-        idx=A.index(max(A))
-        go=True 
-        while go:
-            for dx,dy in bishop_move[idx]:
-                new_bishop_x,new_bishop_y=bishop_x+dx,bishop_y+dy 
-                coor=(new_bishop_x,new_bishop_y)
-                if coor in obstacles or coor==(knight_x,knight_y) or coor==(rook_x,rook_y):
-                    go=False
-                    break
-                if coor in pawns:
-                    pawns.remove(coor)
-                    cost+=10
-            go=False 
-    if node.knight:
-        cost+=minimumSpanningTree(list(pawns))*8
-    return cost        
-
+        bx,by=node.bishop
+        span=minimumSpanningTree(list(pawns),2)
+        go=min(1 if abs(bx-px)==abs(by-py) else 2 for px,py in pawns)
+        res+=(span+go)*10
+        divide+=1
+    return res/divide    
 
 res=search()  
-f=open("output.txt","w+")  
+print(res.cost,total_expanded_nodes[0])
      
+""" 
+f=open("output.txt","w+") 
 if res:     
     f.write(str(total_expanded_nodes[0])+'\n')
     f.write(str(res.cost)+'\n')
@@ -281,7 +255,7 @@ else:
     f.write("No solution can be found\n")
 
 f.flush()
-f.close()    
+f.close() """    
 
 
 
@@ -295,6 +269,7 @@ f.close()
 
         
           
+
 
 
 
