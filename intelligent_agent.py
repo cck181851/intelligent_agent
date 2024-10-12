@@ -61,10 +61,12 @@ def minimumSpanningTree(node,mode):
     return total_cost
 
 def generate():
-    return [['.', '.', 'x', 'x', '1', '.', 'x'], ['.', 'x', 'x', '.', '.', '.', 'R'], ['1', '1', '.', '.', '1', '.', '.'], ['x', 'x', '1', '.', '.', '1', '.'], ['.', '.', '.', '.', 'x', '.', 'x'], ['.', '.', 'x', '.', 'x', '.', '.'], ['.', '.', 'x', '.', '1', '.', '.']]
+    return [[".","R",".",".","."],[".","1","x",".","."],[".","2","x",".","."],[".","3","x",".","."],
+            [".","4","5","6","."]]
 
 arguments = sys.argv 
-file_name,input_file_name,output_file_name,method,heuristic=arguments
+#file_name,input_file_name,output_file_name,method,heuristic=arguments
+heuristic,method="h1","UCS"
 table=generate()
 N=len(table)
   
@@ -129,7 +131,7 @@ def expand_knight(node,seen,queue):
             continue
         if any([(new_x,new_y)==(i,j) for i,j in obstacles]) or (new_x,new_y)==node.bishop or (new_x,new_y)==node.rook:
             continue                     
-        new_pawns=tuple(pos for pos in node.pawns if pos!=(new_x,new_y)) 
+        new_pawns=set(pos for pos in node.pawns if pos!=(new_x,new_y)) 
         new_knight=(new_x,new_y)                
         new_node=Node(new_pawns,node.rook,node.bishop,new_knight,node.cost+6,node)
         if new_node not in seen:   
@@ -150,7 +152,7 @@ def expand_rook(node,seen,queue):
                 break
             if any([(new_x,new_y)==(i,j) for i,j in obstacles]) or (new_x,new_y)==node.bishop or (new_x,new_y)==node.knight:
                 break
-            new_pawns=tuple(pos for pos in node.pawns if pos!=(new_x,new_y))
+            new_pawns=set(pos for pos in node.pawns if pos!=(new_x,new_y))
             new_rook=(new_x,new_y)            
             new_node=Node(new_pawns,new_rook,node.bishop,node.knight,node.cost+8,node)
             if new_node not in seen: 
@@ -173,7 +175,7 @@ def expand_bishop(node,seen,queue):
                 break
             if any([(new_x,new_y)==(i,j) for i,j in obstacles]) or (new_x,new_y)==node.knight or (new_x,new_y)==node.rook:
                 break
-            new_pawns=tuple(pos for pos in node.pawns if pos!=(new_x,new_y))
+            new_pawns=set(pos for pos in node.pawns if pos!=(new_x,new_y))
             new_bishop=(new_x,new_y)            
             new_node=Node(new_pawns,node.rook,new_bishop,node.knight,node.cost+10,node)            
             if new_node not in seen:
@@ -208,6 +210,17 @@ def h2(node):
     if not pawns:return 0
     res=0
     divide=0
+    k_check=0
+    if node.knight:
+        kx,ky=node.knight
+        for dx,dy in knight_move:
+            new_kx,new_ky=kx+dx,ky+dy
+            if (new_kx,new_ky) in pawns:
+                pawns.remove((new_kx,new_ky))
+                k_check+=1
+                divide+=1
+            if k_check==2:
+                break    
     if node.rook:
         nx,ny=node.rook 
         span=minimumSpanningTree(list(pawns),1)
@@ -220,62 +233,41 @@ def h2(node):
         go=min(1 if abs(bx-px)==abs(by-py) else 2 for px,py in pawns)
         res+=(span+go)*10
         divide+=1
-    return res/divide    
+    return res/divide+k_check*6    
 
-res=search()  
-print(res.cost,total_expanded_nodes[0])
-     
-""" 
-f=open("output.txt","w+") 
-if res:     
-    f.write(str(total_expanded_nodes[0])+'\n')
-    f.write(str(res.cost)+'\n')
-    f.write(str()+'\n')
-    heuristic="h1"
-    f.write(str(findCost(initial))+"\n")
-    heuristic="h2"
-    f.write(str(findCost(initial))+"\n")
+res=search()
+total_cost=res.cost  
+tables=[]
+while res:
+    temp=[["." for _ in range(N)] for _ in range(N)]
+    for x,y in res.pawns:
+        temp[x][y]=copied[x][y]
+    if res.knight:
+        temp[res.knight[0]][res.knight[1]]="K"
+    if res.bishop:
+        temp[res.bishop[0]][res.bishop[1]]="B"
+    if res.rook:
+        temp[res.rook[0]][res.rook[1]]="R"
+    for x,y in obstacles:
+        temp[x][y]="x"
+    tables+=[temp]
+    res=res.parent 
 
-    while res.parent:
-        table=[["." for _ in range(N)] for _ in range(N)]
-        for i,j in res.pawns:
-            table[i][j]=copied[i][j]
-        for i,j in obstacles:
-            table[i][j]="x"
-        if res.knight:
-            table[res.knight[0]][res.knight[1]]="K"
-        if res.rook:
-            table[res.rook[0]][res.rook[1]]="R"
-        if res.bishop:
-            table[res.bishop[0]][res.bishop[1]]="B"
-        res=res.parent   
-        f.write(str(table)+'\n')
-        res=res.parent 
-else:
-    f.write("No solution can be found\n")
+fw=open("output.txt","w+")
+fw.write("expanded:"+str(total_expanded_nodes[0])+'\n')
+fw.write("path cost:"+str(total_cost)+'\n')
+heuristic="h1"
+fw.write("h1:"+str(findCost(initial))+'\n')
+heuristic="h2"
+fw.write("h2:"+str(findCost(initial))+'\n')
+for table in tables[::-1]:
+    for t in table:
+        fw.write(str(t)+'\n')        
+    fw.write("*************************\n")    
 
-f.flush()
-f.close() """    
+fw.flush()
+fw.close()    
 
-
-
-
-
-
-
- 
-
-
-
-        
-          
-
-
-
-
-
-
-          
 
 
 
