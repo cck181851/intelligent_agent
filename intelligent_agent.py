@@ -67,15 +67,10 @@ def minimumSpanningTree(node,mode):
                 
     return total_cost
 
-#used for test purposes
-def generate():
-    return [[".","R",".",".","."],[".","1","x",".","."],[".","2","x",".","."],[".","3","x",".","."],
-            [".","4","5","6","."]]
 
 arguments = sys.argv 
-#file_name,input_file_name,output_file_name,method,heuristic=arguments
-heuristic,method="h1","UCS"
-table=generate()
+file_name,input_file_name,output_file_name,method,heuristic=arguments
+table=[i.strip().split() for i in open("input.txt","r+").readlines()]
 N=len(table)
   
 copied=[[i for i in j] for j in table]   
@@ -110,6 +105,7 @@ for i in range(N):
 
 #a trick to avoid passing the value to all the function that need it
 total_expanded_nodes=[0]             
+order=[0]
 
 #iterative search algorithm
 def search():
@@ -120,23 +116,23 @@ def search():
         _,_,node=heapq.heappop(queue)                        
         if len(node.pawns)==0:
             return node 
-        #we first need to expand knight,then bishop and rook,as required  
+        if node in seen:
+            continue
+        #we first need to expand knight,then bishop and rook,as required          
         if node.knight:
             expand_knight(node,seen,queue)
         if node.bishop:
             expand_bishop(node,seen,queue)
         if node.rook:
-            expand_rook(node,seen,queue)                                 
+            expand_rook(node,seen,queue) 
+        total_expanded_nodes[0]+=1    
+        seen.add(node)                                    
 
     return None  
 
 #implemtation of the expand_knight algorithm used in the search algorithm
 def expand_knight(node,seen,queue):
-    x,y=node.knight
-    if node in seen:
-        return #avoid loopy path
-    total_expanded_nodes[0]+=1    
-    seen.add(node) #add the node to the seen to avoid loopy paths 
+    x,y=node.knight           
     for dx,dy in knight_move:
         new_x,new_y=x+dx,y+dy  #directions
         if not (0<=new_x<N and 0<=new_y<N):
@@ -145,19 +141,16 @@ def expand_knight(node,seen,queue):
             continue #avoid hitting into another stone or obstacles                    
         new_pawns=set(pos for pos in node.pawns if pos!=(new_x,new_y)) 
         new_knight=(new_x,new_y)     
-        #create the new configuration           
+        #create the new configuration     
         new_node=Node(new_pawns,node.rook,node.bishop,new_knight,node.cost+6,node)
-        if new_node not in seen:   #node is not in the seen set,thus go on,
+        if new_node not in seen:
             new_cost=findCost(new_node)      #find the h-cost of the node
-            heapq.heappush(queue,(new_cost,total_expanded_nodes[0],new_node)) #add the new node to the priority queue   
+            order[0]+=1
+            heapq.heappush(queue,(new_cost,order[0],new_node)) #add the new node to the priority queue   
 
 #implementation of the expand_rook algorithm used in the search algorithm
 def expand_rook(node,seen,queue):
-    x,y=node.rook
-    if node in seen: # it is visited before, thus skip it to avoid loopy paths
-        return
-    total_expanded_nodes[0]+=1 #increase the number of nodes expanded thus far    
-    seen.add(node)
+    x,y=node.rook      
     for change in rook_move:
         for dx,dy in change:
             new_x=x+dx
@@ -170,19 +163,16 @@ def expand_rook(node,seen,queue):
             new_rook=(new_x,new_y)   
             #create the new configuration         
             new_node=Node(new_pawns,new_rook,node.bishop,node.knight,node.cost+8,node)
-            if new_node not in seen: 
-                new_cost=findCost(new_node)   
-                heapq.heappush(queue,(new_cost,total_expanded_nodes[0],new_node))  
+            if new_node not in seen:
+                new_cost=findCost(new_node)  
+                order[0]+=1 
+                heapq.heappush(queue,(new_cost,order[0],new_node))  
                 if (new_x,new_y) in node.pawns: #if the stone hit into a pawn, then it cannot go on further 
                     break 
 
 #same implementation for the expand_bishop part of the search algorithms
 def expand_bishop(node,seen,queue):
     x,y=node.bishop
-    if node in seen: #avoid loopy paths 
-        return
-    seen.add(node)  
-    total_expanded_nodes[0]+=1  #increase the number of the nodes expanded  
     for change in bishop_move:
         for dx,dy in change:
             new_x=x+dx
@@ -194,10 +184,11 @@ def expand_bishop(node,seen,queue):
             new_pawns=set(pos for pos in node.pawns if pos!=(new_x,new_y))
             new_bishop=(new_x,new_y)            
             #create the new configuration
-            new_node=Node(new_pawns,node.rook,new_bishop,node.knight,node.cost+10,node)            
-            if new_node not in seen:
-                new_cost=findCost(new_node)                     
-                heapq.heappush(queue,(new_cost,total_expanded_nodes[0],new_node))   
+            new_node=Node(new_pawns,node.rook,new_bishop,node.knight,node.cost+10,node) 
+            if new_node not in seen:           
+                new_cost=findCost(new_node)      
+                order[0]+=1               
+                heapq.heappush(queue,(new_cost,new_node))   
                 if (new_x,new_y) in node.pawns: #if the stone hit into a pawn, it cannot go on further
                     break    
 
@@ -205,10 +196,6 @@ def expand_bishop(node,seen,queue):
 def findCost(node):
     if method=="UCS":
         return node.cost 
-    elif method=="GS" and heuristic=="h1":
-        rook_x,rook_y=node.rook
-        random=any([rook_x==pi or rook_y==pj for pi,pj in node.pawns])
-        return (node.cost+8)+8*((len(node.pawns)+(1 if not random else 0)))
     elif method=="GS" and heuristic=="h2":        
         return h2(node) 
     elif method=="GS" and heuristic=="h1":
@@ -224,7 +211,7 @@ def findCost(node):
 
 #my heuristic function h2
 def h2(node):     
-    pawns=node.pawns
+    pawns={(i[0],i[1]) for i in node.pawns}
     if not pawns:return 0 #the search is over as there is no pawn left
     res=0
     divide=0 #this is used to get the mean of the calculated cost
@@ -238,17 +225,17 @@ def h2(node):
                 k_check+=1 
                 divide+=1
             if k_check==2: #do not go on further as this will increase the cost as hitting into each pawn takes 2 actions 
-                break    
+                break         
     if node.rook:
         nx,ny=node.rook 
         span=minimumSpanningTree(list(pawns),1) #find the minimum cost of connection all the points,which reduces to  
-        go=min(1 if nx==px or ny==py else 2 for px,py in pawns) #reaching all the pawns with minimum cost
+        go=min([1 if nx==px or ny==py else 2 for px,py in pawns],default=0) #reaching all the pawns with minimum cost
         res+=8*(span+go) #each action takes 8 points
         divide+=1 #number of components increased
     if node.bishop:
         bx,by=node.bishop #the same process for bishop
         span=minimumSpanningTree(list(pawns),2)
-        go=min(1 if abs(bx-px)==abs(by-py) else 2 for px,py in pawns)
+        go=min([1 if abs(bx-px)==abs(by-py) else 2 for px,py in pawns],default=0)
         res+=(span+go)*10
         divide+=1
     return res/divide+k_check*6  # multiply the k_check by 6 as each action takes 6 points for the knight  
@@ -272,7 +259,7 @@ while res:
     tables+=[temp]
     res=res.parent 
 
-fw=open("output.txt","w+")
+fw=open("output.txt","w")
 fw.write("expanded:"+str(total_expanded_nodes[0])+'\n')
 fw.write("path cost:"+str(total_cost)+'\n')
 heuristic="h1"
@@ -285,7 +272,10 @@ for table in tables[::-1]:
     fw.write("*************************\n")    
 
 fw.flush()
-fw.close()  
+fw.close()    
+
+
+
 
 
  
