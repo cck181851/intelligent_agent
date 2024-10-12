@@ -266,17 +266,7 @@ for table in tables[::-1]:
     fw.write("*************************\n")    
 
 fw.flush()
-fw.close()    
-
-
-
-
-
-
-
- 
-
-
+fw.close() 
 
         
           
